@@ -49,12 +49,11 @@ def help_message(admin_username: str, is_admin: bool) -> str:
 
 def account_status_message(user: User) -> str:
     if user.is_premium:
-        status = "enabled" if user.daily_summary_enabled else "disabled"
         return (
             "👤 <b>Your account</b>\n"
             "Plan: <b>Premium</b>\n"
             f"Valid until: <b>{fmt_date(user.premium_expires_at)}</b>\n"
-            f"Daily summary: <b>{status}</b>"
+            "Daily summary: <b>enabled</b>"
         )
     return (
         "👤 <b>Your account</b>\n"
@@ -64,19 +63,7 @@ def account_status_message(user: User) -> str:
 
 
 def account_reply_markup(user: User) -> dict | None:
-    if not user.is_premium:
-        return None
-    if user.daily_summary_enabled:
-        button = {
-            "text": "Disable daily summary",
-            "callback_data": "daily_summary:off",
-        }
-    else:
-        button = {
-            "text": "Enable daily summary",
-            "callback_data": "daily_summary:on",
-        }
-    return {"inline_keyboard": [[button]]}
+    return None
 
 
 def database_error_message() -> str:

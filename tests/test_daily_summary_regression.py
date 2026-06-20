@@ -6,7 +6,7 @@ from pathlib import Path
 from daily_procurements import ProcurementSummaryItem, build_daily_summary_html_document, build_daily_summary_message
 
 
-ROOT = Path(__file__).resolve().parents[3]
+ROOT = Path(__file__).resolve().parents[2]
 OLD_MODULE = ROOT / "who-is-the-winner" / "daily_procurements.py"
 
 

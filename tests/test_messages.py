@@ -13,7 +13,7 @@ class MessageTests(unittest.TestCase):
             first_name="Demo",
             plan="premium",
             premium_expires_at=datetime.now(timezone.utc) + timedelta(days=7),
-            daily_summary_enabled=True,
+            daily_summary_enabled=False,
         )
         self.assertIn("Premium", account_status_message(user))
         self.assertIn("enabled", account_status_message(user))
@@ -28,7 +28,7 @@ class MessageTests(unittest.TestCase):
             daily_summary_enabled=False,
         )
         markup = account_reply_markup(user)
-        self.assertIn("daily_summary:on", str(markup))
+        self.assertIsNone(markup)
 
     def test_premium_only_message(self):
         text = premium_only_message("summary_admin")

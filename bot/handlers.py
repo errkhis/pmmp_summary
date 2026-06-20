@@ -147,17 +147,15 @@ def process_callback(callback: dict[str, Any]) -> None:
         return
 
     if data in ("daily_summary:on", "daily_summary:off"):
-        enabled = data.endswith(":on")
         try:
             user = upsert_telegram_user(sender or {"id": chat_id})
             if not user.is_premium:
                 send(chat_id, premium_only_message(TELEGRAM_ADMIN_USERNAME))
                 return
-            user = set_daily_summary_enabled(user.telegram_id, enabled)
-            status = "enabled" if user.daily_summary_enabled else "disabled"
+            user = set_daily_summary_enabled(user.telegram_id, True)
             send(
                 chat_id,
-                f"✅ Daily summary <b>{status}</b>.",
+                "✅ Daily summary <b>enabled</b>.",
                 reply_markup=account_reply_markup(user),
             )
         except DatabaseNotConfigured:

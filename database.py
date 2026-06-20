@@ -185,8 +185,7 @@ def list_daily_summary_recipients() -> list[int]:
             f"""
             SELECT telegram_id
             FROM {USERS_TABLE}
-            WHERE daily_summary_enabled = TRUE
-              AND plan = 'premium'
+            WHERE plan = 'premium'
               AND premium_expires_at IS NOT NULL
               AND premium_expires_at > NOW()
             ORDER BY created_at DESC
@@ -206,6 +205,7 @@ def grant_premium(telegram_id: int, years: int = PREMIUM_YEARS_DEFAULT, admin_te
                 VALUES (%s, 'premium', NOW() + (%s || ' years')::interval)
                 ON CONFLICT (telegram_id) DO UPDATE SET
                     plan = 'premium',
+                    daily_summary_enabled = TRUE,
                     premium_expires_at = CASE
                         WHEN {USERS_TABLE}.premium_expires_at IS NOT NULL
                          AND {USERS_TABLE}.premium_expires_at > NOW()
@@ -248,7 +248,13 @@ def set_daily_summary_enabled(telegram_id: int, enabled: bool) -> User:
         row = conn.execute(
             f"""
             UPDATE {USERS_TABLE}
-            SET daily_summary_enabled = %s,
+            SET daily_summary_enabled = CASE
+                    WHEN plan = 'premium'
+                     AND premium_expires_at IS NOT NULL
+                     AND premium_expires_at > NOW()
+                    THEN TRUE
+                    ELSE %s
+                END,
                 updated_at = NOW()
             WHERE telegram_id = %s
             RETURNING telegram_id, username, first_name, plan, premium_expires_at, daily_summary_enabled
