@@ -125,24 +125,60 @@ def build_daily_summary_html_document(
 ) -> str:
     date_label = target_date.strftime("%d/%m/%Y")
     rows = []
+    cards = []
     for index, item in enumerate(items, start=1):
         row_class = "row-fournitures" if _norm(item.category).startswith("fourniture") else ""
+        title = _html(item.title)
+        category = _html(item.category)
+        estimated_price = _html(_fmt_price(item.estimated_price))
+        caution_amount = _html(_fmt_price(item.caution_amount))
+        documents = _html(_yes_no(item.has_documents))
+        location = _html(item.location)
+        due_date = _html(item.due_date)
+        consultation_url = _html(item.consultation_url)
+        reference = _html(item.reference or "Sans reference")
         rows.append(
             f"<tr class=\"{row_class}\">"
             f"<td data-label=\"#\">{index}</td>"
-            f"<td data-label=\"OBJET\">{_html(item.title)}</td>"
-            f"<td data-label=\"TYPE\">{_html(item.category)}</td>"
-            f"<td data-label=\"ESTIMATION\">{_html(_fmt_price(item.estimated_price))}</td>"
-            f"<td data-label=\"CAUTION\">{_html(_fmt_price(item.caution_amount))}</td>"
-            f"<td data-label=\"DOCUMENTS\">{_html(_yes_no(item.has_documents))}</td>"
-            f"<td data-label=\"LIEU\">{_html(item.location)}</td>"
-            f"<td data-label=\"DATE LIMITE\">{_html(item.due_date)}</td>"
-            f"<td data-label=\"LIEN\"><a href=\"{_html(item.consultation_url)}\">Consultation</a></td>"
+            f"<td data-label=\"OBJET\"><strong>{title}</strong><span>{reference}</span></td>"
+            f"<td data-label=\"TYPE\"><span class=\"type-pill\">{category}</span></td>"
+            f"<td data-label=\"ESTIMATION\">{estimated_price}</td>"
+            f"<td data-label=\"CAUTION\">{caution_amount}</td>"
+            f"<td data-label=\"DOCUMENTS\"><span class=\"doc-pill\">{documents}</span></td>"
+            f"<td data-label=\"LIEU\">{location}</td>"
+            f"<td data-label=\"DATE LIMITE\">{due_date}</td>"
+            f"<td data-label=\"LIEN\"><a href=\"{consultation_url}\">Ouvrir</a></td>"
             "</tr>"
+        )
+        cards.append(
+            f"<article class=\"consultation-card {row_class}\">"
+            f"<div class=\"card-top\">"
+            f"<span class=\"card-index\">#{index}</span>"
+            f"<span class=\"card-badge\">{'Type fournitures' if row_class else 'AOS'}</span>"
+            "</div>"
+            f"<h2>{title}</h2>"
+            f"<p class=\"card-ref\">Ref: {reference}</p>"
+            f"<div class=\"card-type\">{category}</div>"
+            f"<div class=\"card-grid\">"
+            f"<div><span>Estimation</span><strong>{estimated_price}</strong></div>"
+            f"<div><span>Caution</span><strong>{caution_amount}</strong></div>"
+            f"<div><span>Documents</span><strong>{documents}</strong></div>"
+            f"<div><span>Lieu</span><strong>{location}</strong></div>"
+            f"<div class=\"card-wide\"><span>Date limite</span><strong>{due_date}</strong></div>"
+            "</div>"
+            f"<a class=\"card-link\" href=\"{consultation_url}\">Voir la consultation</a>"
+            "</article>"
         )
 
     table_rows = "\n".join(rows) or (
-        "<tr><td colspan=\"9\">Aucune consultation publiee pour cette date.</td></tr>"
+        "<tr><td colspan=\"9\" class=\"empty-table\">Aucune consultation publiee pour cette date.</td></tr>"
+    )
+    card_markup = "\n".join(cards) or (
+        "<section class=\"empty-state\">"
+        "<div class=\"empty-icon\">0</div>"
+        "<h2>Aucune consultation publiee</h2>"
+        "<p>La journee selectionnee ne contient aucun appel d'offres ouvert simplifie a afficher.</p>"
+        "</section>"
     )
     return f"""<!doctype html>
 <html lang="fr">
@@ -153,57 +189,229 @@ def build_daily_summary_html_document(
   <style>
     :root {{
       color-scheme: light;
-      --bg: #f5f1e8;
-      --paper: #fffdf8;
-      --ink: #1d2a33;
-      --muted: #69757d;
-      --line: #d7d0c2;
-      --accent: #0d5c63;
-      --accent-soft: #e1f0ef;
-      --fournitures: #ffd9d9;
-      --fournitures-border: #c62828;
+      --bg: #f3efe6;
+      --bg-strong: #e5dcc8;
+      --paper: rgba(255, 251, 244, 0.94);
+      --paper-strong: #fffdfa;
+      --ink: #182126;
+      --muted: #64707a;
+      --line: rgba(24, 33, 38, 0.11);
+      --accent: #0f766e;
+      --accent-2: #d97706;
+      --accent-soft: rgba(15, 118, 110, 0.11);
+      --warm-soft: rgba(217, 119, 6, 0.12);
+      --success-soft: rgba(22, 163, 74, 0.12);
+      --shadow: 0 24px 60px rgba(51, 39, 16, 0.12);
+      --fournitures: rgba(255, 233, 233, 0.9);
+      --fournitures-border: #c2410c;
     }}
     * {{ box-sizing: border-box; }}
     body {{
       margin: 0;
-      padding: 32px;
-      background: linear-gradient(180deg, var(--bg), #ebe4d7);
+      padding: 24px;
+      background:
+        radial-gradient(circle at top left, rgba(15, 118, 110, 0.16), transparent 28%),
+        radial-gradient(circle at top right, rgba(217, 119, 6, 0.16), transparent 24%),
+        linear-gradient(180deg, #f8f4ec 0%, var(--bg) 52%, var(--bg-strong) 100%);
       color: var(--ink);
-      font: 14px/1.5 Arial, sans-serif;
+      font: 15px/1.6 "Segoe UI", Arial, sans-serif;
+    }}
+    a {{
+      color: inherit;
+    }}
+    .page {{
+      max-width: 1320px;
+      margin: 0 auto;
+    }}
+    .topbar {{
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 18px;
+      padding: 0 4px;
+    }}
+    .brand {{
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--muted);
+      font-size: 13px;
+      letter-spacing: 0.08em;
       text-transform: uppercase;
     }}
+    .brand-mark {{
+      width: 38px;
+      height: 38px;
+      display: inline-grid;
+      place-items: center;
+      border-radius: 12px;
+      background: linear-gradient(135deg, var(--accent), #155e75);
+      color: #fff;
+      font-weight: 700;
+      box-shadow: 0 12px 24px rgba(15, 118, 110, 0.28);
+    }}
+    .brand-name strong {{
+      display: block;
+      color: var(--ink);
+      font-size: 14px;
+      letter-spacing: 0.04em;
+    }}
+    .status-pill {{
+      padding: 10px 14px;
+      border: 1px solid rgba(15, 118, 110, 0.18);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.72);
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }}
     .sheet {{
-      max-width: 1400px;
-      margin: 0 auto;
       background: var(--paper);
-      border: 1px solid var(--line);
-      border-radius: 18px;
+      border: 1px solid rgba(255, 255, 255, 0.5);
+      border-radius: 28px;
       overflow: hidden;
-      box-shadow: 0 18px 50px rgba(0, 0, 0, 0.08);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(12px);
     }}
     header {{
-      padding: 28px 32px 20px;
-      background: var(--accent-soft);
+      padding: 36px 36px 24px;
+      background:
+        radial-gradient(circle at 85% 10%, rgba(217, 119, 6, 0.2), transparent 20%),
+        linear-gradient(135deg, rgba(15, 118, 110, 0.14), rgba(255, 255, 255, 0.78));
       border-bottom: 1px solid var(--line);
     }}
-    h1 {{
-      margin: 0 0 8px;
-      font-size: 28px;
+    .hero {{
+      display: grid;
+      grid-template-columns: minmax(0, 1.3fr) minmax(260px, 0.7fr);
+      gap: 24px;
+      align-items: end;
     }}
-    p {{
-      margin: 4px 0;
+    .eyebrow {{
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 14px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.78);
+      border: 1px solid rgba(15, 118, 110, 0.16);
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }}
+    h1 {{
+      margin: 0;
+      font-size: 42px;
+      line-height: 1.05;
+      letter-spacing: -0.03em;
+      max-width: 14ch;
+    }}
+    .lead {{
+      max-width: 58ch;
+      margin: 14px 0 0;
       color: var(--muted);
+      font-size: 16px;
+    }}
+    .hero-side {{
+      display: grid;
+      gap: 12px;
+    }}
+    .spotlight {{
+      padding: 18px 18px 16px;
+      border-radius: 22px;
+      background: rgba(255, 255, 255, 0.76);
+      border: 1px solid rgba(24, 33, 38, 0.07);
+    }}
+    .spotlight span {{
+      display: block;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }}
+    .spotlight strong {{
+      display: block;
+      margin-top: 8px;
+      font-size: 24px;
+      line-height: 1.15;
+    }}
+    .hero-note {{
+      color: var(--muted);
+      font-size: 13px;
+    }}
+    .summary-strip {{
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+      padding: 20px 36px 0;
+    }}
+    .metric {{
+      padding: 18px 18px 16px;
+      border-radius: 20px;
+      background: var(--paper-strong);
+      border: 1px solid var(--line);
+      box-shadow: 0 10px 24px rgba(31, 41, 55, 0.04);
+    }}
+    .metric span {{
+      display: block;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }}
+    .metric strong {{
+      display: block;
+      margin-top: 8px;
+      font-size: 26px;
+      line-height: 1.15;
+    }}
+    .metric em {{
+      display: block;
+      margin-top: 6px;
+      color: var(--muted);
+      font-style: normal;
+      font-size: 13px;
+    }}
+    .content {{
+      padding: 26px 36px 36px;
+    }}
+    .section-head {{
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 18px;
+    }}
+    .section-head h2 {{
+      margin: 0;
+      font-size: 22px;
+      letter-spacing: -0.02em;
+    }}
+    .section-head p {{
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
     }}
     .table-wrap {{
       overflow: auto;
-      padding: 0 0 8px;
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      background: rgba(255, 255, 255, 0.82);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
     }}
     table {{
       width: 100%;
       border-collapse: collapse;
     }}
     th, td {{
-      padding: 12px 14px;
+      padding: 16px 18px;
       border-bottom: 1px solid var(--line);
       vertical-align: top;
       text-align: left;
@@ -211,11 +419,29 @@ def build_daily_summary_html_document(
     th {{
       position: sticky;
       top: 0;
-      background: #f8f5ee;
+      background: rgba(248, 244, 236, 0.94);
       z-index: 1;
-      font-size: 12px;
-      letter-spacing: 0.04em;
+      font-size: 11px;
+      letter-spacing: 0.08em;
       text-transform: uppercase;
+      color: var(--muted);
+    }}
+    td strong {{
+      display: block;
+      font-size: 15px;
+      line-height: 1.45;
+    }}
+    td span {{
+      display: block;
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 12px;
+    }}
+    tbody tr {{
+      background: rgba(255, 255, 255, 0.78);
+    }}
+    tbody tr:hover {{
+      background: rgba(255, 255, 255, 0.95);
     }}
     tbody tr.row-fournitures {{
       box-shadow: inset 6px 0 0 var(--fournitures-border);
@@ -223,73 +449,285 @@ def build_daily_summary_html_document(
     tbody tr.row-fournitures td {{
       background: var(--fournitures);
     }}
-    td:nth-child(1), td:nth-child(4), td:nth-child(6) {{
+    td:nth-child(1), td:nth-child(4), td:nth-child(5), td:nth-child(7) {{
       white-space: nowrap;
     }}
-    a {{
-      color: var(--accent);
+    td a, .card-link {{
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 42px;
+      padding: 0 16px;
+      border-radius: 999px;
+      background: var(--ink);
+      color: #fff;
       text-decoration: none;
+      font-weight: 700;
+    }}
+    .type-pill, .doc-pill, .card-badge, .card-type {{
+      display: inline-flex;
+      align-items: center;
+      width: fit-content;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1;
+    }}
+    .doc-pill {{
+      background: var(--success-soft);
+      color: #166534;
+    }}
+    .cards {{
+      display: none;
+      gap: 14px;
+    }}
+    .consultation-card {{
+      padding: 18px;
+      border-radius: 22px;
+      background: rgba(255, 255, 255, 0.86);
+      border: 1px solid var(--line);
+      box-shadow: 0 14px 28px rgba(31, 41, 55, 0.06);
+    }}
+    .consultation-card.row-fournitures {{
+      background: var(--fournitures);
+      border-color: rgba(194, 65, 12, 0.24);
+      box-shadow: inset 5px 0 0 var(--fournitures-border);
+    }}
+    .card-top {{
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 10px;
+    }}
+    .card-index {{
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+    }}
+    .card-badge {{
+      background: var(--warm-soft);
+      color: #b45309;
+    }}
+    .consultation-card h2 {{
+      margin: 0;
+      font-size: 20px;
+      line-height: 1.25;
+      letter-spacing: -0.02em;
+    }}
+    .card-ref {{
+      margin: 8px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+    }}
+    .card-type {{
+      margin-top: 14px;
+    }}
+    .card-grid {{
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 16px;
+    }}
+    .card-grid div {{
+      padding: 12px;
+      border-radius: 16px;
+      background: rgba(248, 244, 236, 0.9);
+      border: 1px solid rgba(24, 33, 38, 0.06);
+    }}
+    .card-grid span {{
+      display: block;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }}
+    .card-grid strong {{
+      display: block;
+      margin-top: 6px;
+      font-size: 15px;
+      line-height: 1.35;
+    }}
+    .card-wide {{
+      grid-column: 1 / -1;
+    }}
+    .card-link {{
+      width: 100%;
+      margin-top: 16px;
+    }}
+    .empty-state {{
+      padding: 34px 20px;
+      text-align: center;
+      border: 1px dashed rgba(24, 33, 38, 0.16);
+      border-radius: 24px;
+      background: rgba(255, 255, 255, 0.7);
+    }}
+    .empty-icon {{
+      width: 70px;
+      height: 70px;
+      margin: 0 auto 16px;
+      display: grid;
+      place-items: center;
+      border-radius: 20px;
+      background: linear-gradient(135deg, var(--accent-soft), rgba(217, 119, 6, 0.16));
+      color: var(--accent);
+      font-size: 28px;
+      font-weight: 800;
+    }}
+    .empty-state h2 {{
+      margin: 0;
+      font-size: 24px;
+    }}
+    .empty-state p, .empty-table {{
+      color: var(--muted);
+    }}
+    footer {{
+      padding: 0 36px 30px;
+      color: var(--muted);
+      font-size: 13px;
+    }}
+    @media (max-width: 980px) {{
+      .hero,
+      .summary-strip {{
+        grid-template-columns: 1fr;
+      }}
+      h1 {{
+        font-size: 34px;
+      }}
     }}
     @media (max-width: 720px) {{
-      body {{ padding: 12px; }}
-      header {{ padding: 20px; }}
-      .table-wrap {{ overflow: visible; padding: 12px; }}
-      table, thead, tbody, tr, th, td {{ display: block; width: 100%; }}
-      thead {{ display: none; }}
-      tr {{
-        margin-bottom: 12px;
-        border: 1px solid var(--line);
-        border-radius: 14px;
-        overflow: hidden;
-        background: #fffdf8;
+      body {{
+        padding: 14px;
       }}
-      tbody tr.row-fournitures {{
-        border-color: var(--fournitures-border);
-        box-shadow: inset 8px 0 0 var(--fournitures-border);
+      .topbar {{
+        align-items: flex-start;
+        flex-direction: column;
       }}
-      td {{
-        padding: 10px 12px;
-        border-bottom: 1px solid var(--line);
-        white-space: normal !important;
+      header {{
+        padding: 24px 18px 18px;
       }}
-      td:last-child {{ border-bottom: 0; }}
-      td::before {{
-        content: attr(data-label);
-        display: block;
-        margin-bottom: 4px;
-        color: var(--muted);
-        font-size: 11px;
-        letter-spacing: 0.04em;
+      .summary-strip,
+      .content,
+      footer {{
+        padding-left: 18px;
+        padding-right: 18px;
+      }}
+      h1 {{
+        font-size: 28px;
+      }}
+      .lead {{
+        font-size: 15px;
+      }}
+      .metric strong,
+      .spotlight strong {{
+        font-size: 22px;
+      }}
+      .table-wrap {{
+        display: none;
+      }}
+      .cards {{
+        display: grid;
+      }}
+      .section-head {{
+        align-items: flex-start;
+        flex-direction: column;
+      }}
+      .consultation-card {{
+        padding: 16px;
+      }}
+      .consultation-card h2 {{
+        font-size: 18px;
+      }}
+      .card-grid {{
+        grid-template-columns: 1fr;
+      }}
+      .card-wide {{
+        grid-column: auto;
       }}
     }}
   </style>
 </head>
 <body>
-  <div class="sheet">
-    <header>
-      <h1>Resume quotidien - Appels d'offres ouverts simplifies</h1>
-      <p>Date de publication filtree: {html.escape(date_label)}</p>
-      <p>Nombre total de consultations: {len(items)}</p>
-    </header>
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>Objet</th>
-            <th>Type</th>
-            <th>Estimation</th>
-            <th>Caution</th>
-            <th>Documents</th>
-            <th>Lieu</th>
-            <th>Date limite</th>
-            <th>Lien</th>
-          </tr>
-        </thead>
-        <tbody>
-          {table_rows}
-        </tbody>
-      </table>
+  <div class="page">
+    <div class="topbar">
+      <div class="brand">
+        <span class="brand-mark">PB</span>
+        <span class="brand-name"><strong>PMMP Daily Summary Bot</strong>Rapport HTML premium</span>
+      </div>
+      <div class="status-pill">Rapport du {html.escape(date_label)}</div>
+    </div>
+    <div class="sheet">
+      <header>
+        <div class="hero">
+          <div>
+            <div class="eyebrow">Appels d'offres ouverts simplifies</div>
+            <h1>Lecture rapide, claire et mobile pour vos consultations.</h1>
+            <p class="lead">Ce document genere par <strong>PMMP Daily Summary Bot</strong> met les consultations du jour en avant avec une hierarchie visuelle plus nette, pour faciliter le tri, la lecture et l'action.</p>
+          </div>
+          <div class="hero-side">
+            <div class="spotlight">
+              <span>Date filtree</span>
+              <strong>{html.escape(date_label)}</strong>
+            </div>
+            <div class="hero-note">Ouverture confortable sur telephone, partage simple en HTML et lecture plus motivante pour les utilisateurs finaux.</div>
+          </div>
+        </div>
+      </header>
+      <section class="summary-strip">
+        <div class="metric">
+          <span>Total consultations</span>
+          <strong>{len(items)}</strong>
+          <em>Resume quotidien disponible en un coup d'oeil</em>
+        </div>
+        <div class="metric">
+          <span>Format</span>
+          <strong>HTML premium</strong>
+          <em>Structure optimisee pour bureau et smartphone</em>
+        </div>
+        <div class="metric">
+          <span>Assistant</span>
+          <strong>PMMP Daily Summary Bot</strong>
+          <em>Rapport prepare pour une lecture plus fluide</em>
+        </div>
+      </section>
+      <section class="content">
+        <div class="section-head">
+          <div>
+            <h2>Consultations publiees</h2>
+            <p>Les cartes s'affichent automatiquement sur mobile. Le tableau reste disponible sur ecran large pour comparer rapidement plusieurs lignes.</p>
+          </div>
+        </div>
+        <div class="cards">
+          {card_markup}
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Objet</th>
+                <th>Type</th>
+                <th>Estimation</th>
+                <th>Caution</th>
+                <th>Documents</th>
+                <th>Lieu</th>
+                <th>Date limite</th>
+                <th>Lien</th>
+              </tr>
+            </thead>
+            <tbody>
+              {table_rows}
+            </tbody>
+          </table>
+        </div>
+      </section>
+      <footer>
+        Document genere par <strong>PMMP Daily Summary Bot</strong>. Les donnees et liens restent inchanges; seule la presentation HTML a ete amelioree pour la lisibilite.
+      </footer>
     </div>
   </div>
 </body>
