@@ -700,118 +700,175 @@ def build_daily_summary_html_document(
   </div>
   <script>
     (function () {{
-      const searchInput = document.getElementById("searchInput");
-      const typeSelect = document.getElementById("typeSelect");
-      const documentsSelect = document.getElementById("documentsSelect");
-      const sortSelect = document.getElementById("sortSelect");
-      const resetFiltersButton = document.getElementById("resetFiltersButton");
-      const resultsNote = document.getElementById("resultsNote");
-      const tableBody = document.querySelector(".table-wrap tbody");
-      const cardsContainer = document.querySelector(".cards");
-      const emptyState = cardsContainer ? cardsContainer.querySelector(".empty-state") : null;
-
-      if (!searchInput || !typeSelect || !documentsSelect || !sortSelect || !resetFiltersButton || !resultsNote || !tableBody || !cardsContainer) {{
-        return;
+      function toArray(nodes) {{
+        return Array.prototype.slice.call(nodes || []);
       }}
 
-      const tableRows = Array.from(tableBody.querySelectorAll("tr[data-search]"));
-      const cards = Array.from(cardsContainer.querySelectorAll(".consultation-card[data-search]"));
-
-      function matchesQuery(value, query) {{
-        return value.indexOf(query) !== -1;
+      function hasClass(node, className) {{
+        return (" " + (node.className || "") + " ").indexOf(" " + className + " ") !== -1;
       }}
 
-      function parseDueDate(text) {{
-        const match = String(text || "").match(/(\\d{{2}})\\/(\\d{{2}})\\/(\\d{{4}})(?:\\s+(\\d{{2}}):(\\d{{2}}))?/);
-        if (!match) {{
-          return Number.POSITIVE_INFINITY;
+      function setHidden(node, hidden) {{
+        if (!node) {{
+          return;
         }}
 
-        const day = Number(match[1]);
-        const month = Number(match[2]) - 1;
-        const year = Number(match[3]);
-        const hour = Number(match[4] || "23");
-        const minute = Number(match[5] || "59");
-        return Date.UTC(year, month, day, hour, minute);
-      }}
-
-      function dueDateText(node) {{
-        if (node.matches("tr")) {{
-          const cell = node.querySelector('td[data-label="DATE LIMITE"]');
-          return cell ? cell.textContent : "";
+        if (node.classList && node.classList.toggle) {{
+          node.classList.toggle("hidden-item", hidden);
+          return;
         }}
 
-        const blocks = Array.from(node.querySelectorAll(".card-grid div"));
-        for (const block of blocks) {{
-          const label = block.querySelector("span");
-          if (label && label.textContent.trim().toLowerCase() === "date limite") {{
-            const value = block.querySelector("strong");
-            return value ? value.textContent : "";
+        if (hidden && !hasClass(node, "hidden-item")) {{
+          node.className = ((node.className || "") + " hidden-item").replace(/^\\s+|\\s+$/g, "");
+        }} else if (!hidden && hasClass(node, "hidden-item")) {{
+          node.className = (node.className || "").replace(/(^|\\s)hidden-item(?=\\s|$)/g, " ").replace(/\\s+/g, " ").replace(/^\\s+|\\s+$/g, "");
+        }}
+      }}
+
+      function textOf(node) {{
+        return String((node && (node.textContent || node.innerText)) || "");
+      }}
+
+      function initFilters() {{
+        var searchInput = document.getElementById("searchInput");
+        var typeSelect = document.getElementById("typeSelect");
+        var documentsSelect = document.getElementById("documentsSelect");
+        var sortSelect = document.getElementById("sortSelect");
+        var resetFiltersButton = document.getElementById("resetFiltersButton");
+        var resultsNote = document.getElementById("resultsNote");
+        var tableBody = document.querySelector(".table-wrap tbody");
+        var cardsContainer = document.querySelector(".cards");
+        var emptyState = cardsContainer ? cardsContainer.querySelector(".empty-state") : null;
+
+        if (!searchInput || !typeSelect || !documentsSelect || !sortSelect || !resetFiltersButton || !resultsNote || !tableBody || !cardsContainer) {{
+          return;
+        }}
+
+        var tableRows = toArray(tableBody.querySelectorAll("tr[data-search]"));
+        var cards = toArray(cardsContainer.querySelectorAll(".consultation-card[data-search]"));
+
+        function matchesQuery(value, query) {{
+          return String(value || "").indexOf(query) !== -1;
+        }}
+
+        function parseDueDate(text) {{
+          var match = String(text || "").match(/(\\d{{2}})\\/(\\d{{2}})\\/(\\d{{4}})(?:\\s+(\\d{{2}}):(\\d{{2}}))?/);
+          if (!match) {{
+            return Number.POSITIVE_INFINITY;
+          }}
+
+          var day = Number(match[1]);
+          var month = Number(match[2]) - 1;
+          var year = Number(match[3]);
+          var hour = Number(match[4] || "23");
+          var minute = Number(match[5] || "59");
+          return Date.UTC(year, month, day, hour, minute);
+        }}
+
+        function dueDateText(node) {{
+          var tagName = String((node && node.tagName) || "").toLowerCase();
+          if (tagName === "tr") {{
+            var cell = node.querySelector('td[data-label="DATE LIMITE"]');
+            return textOf(cell);
+          }}
+
+          var blocks = toArray(node.querySelectorAll(".card-grid div"));
+          for (var index = 0; index < blocks.length; index += 1) {{
+            var block = blocks[index];
+            var label = block.querySelector("span");
+            if (String(textOf(label)).replace(/^\\s+|\\s+$/g, "").toLowerCase() === "date limite") {{
+              return textOf(block.querySelector("strong"));
+            }}
+          }}
+          return "";
+        }}
+
+        function syncVisibility(query, typeValue, documentsValue) {{
+          var visibleCount = 0;
+          var index;
+
+          for (index = 0; index < tableRows.length; index += 1) {{
+            var row = tableRows[index];
+            var rowType = row.getAttribute("data-type") || "";
+            var rowDocuments = row.getAttribute("data-documents") || "";
+            var rowSearch = row.getAttribute("data-search") || "";
+            var rowVisible = matchesQuery(rowSearch, query) && (!typeValue || rowType === typeValue) && (!documentsValue || rowDocuments === documentsValue);
+            setHidden(row, !rowVisible);
+            if (rowVisible) {{
+              visibleCount += 1;
+            }}
+          }}
+
+          for (index = 0; index < cards.length; index += 1) {{
+            var card = cards[index];
+            var cardType = card.getAttribute("data-type") || "";
+            var cardDocuments = card.getAttribute("data-documents") || "";
+            var cardSearch = card.getAttribute("data-search") || "";
+            var cardVisible = matchesQuery(cardSearch, query) && (!typeValue || cardType === typeValue) && (!documentsValue || cardDocuments === documentsValue);
+            setHidden(card, !cardVisible);
+          }}
+
+          if (emptyState) {{
+            setHidden(emptyState, visibleCount !== 0);
+          }}
+
+          resultsNote.textContent = "Affichage de " + visibleCount + " consultation(s).";
+        }}
+
+        function sortNodes(order) {{
+          var factor = order === "desc" ? -1 : 1;
+          var compare = function (left, right) {{
+            var a = parseDueDate(dueDateText(left));
+            var b = parseDueDate(dueDateText(right));
+            return a < b ? -1 * factor : a > b ? 1 * factor : 0;
+          }};
+          var index;
+
+          tableRows.sort(compare);
+          cards.sort(compare);
+
+          for (index = 0; index < tableRows.length; index += 1) {{
+            tableBody.appendChild(tableRows[index]);
+          }}
+          for (index = 0; index < cards.length; index += 1) {{
+            cardsContainer.appendChild(cards[index]);
+          }}
+          if (emptyState) {{
+            cardsContainer.appendChild(emptyState);
           }}
         }}
-        return "";
-      }}
 
-      function syncVisibility(query, typeValue, documentsValue) {{
-        let visibleCount = 0;
-
-        tableRows.forEach((row) => {{
-          const matchesType = !typeValue || (row.dataset.type || "") === typeValue;
-          const matchesDocuments = !documentsValue || (row.dataset.documents || "") === documentsValue;
-          const visible = matchesQuery(row.dataset.search || "", query) && matchesType && matchesDocuments;
-          row.classList.toggle("hidden-item", !visible);
-          if (visible) visibleCount += 1;
-        }});
-
-        cards.forEach((card) => {{
-          const matchesType = !typeValue || (card.dataset.type || "") === typeValue;
-          const matchesDocuments = !documentsValue || (card.dataset.documents || "") === documentsValue;
-          const visible = matchesQuery(card.dataset.search || "", query) && matchesType && matchesDocuments;
-          card.classList.toggle("hidden-item", !visible);
-        }});
-
-        if (emptyState) {{
-          emptyState.classList.toggle("hidden-item", visibleCount !== 0);
+        function refresh() {{
+          var query = String(searchInput.value || "").replace(/^\\s+|\\s+$/g, "").toLowerCase();
+          var typeValue = typeSelect.value;
+          var documentsValue = documentsSelect.value;
+          sortNodes(sortSelect.value);
+          syncVisibility(query, typeValue, documentsValue);
         }}
 
-        resultsNote.textContent = "Affichage de " + visibleCount + " consultation(s).";
-      }}
+        searchInput.addEventListener("input", refresh);
+        searchInput.addEventListener("search", refresh);
+        searchInput.addEventListener("change", refresh);
+        typeSelect.addEventListener("change", refresh);
+        documentsSelect.addEventListener("change", refresh);
+        sortSelect.addEventListener("change", refresh);
+        resetFiltersButton.addEventListener("click", function () {{
+          searchInput.value = "";
+          typeSelect.value = "";
+          documentsSelect.value = "";
+          sortSelect.value = "asc";
+          refresh();
+        }});
 
-      function sortNodes(order) {{
-        const factor = order === "desc" ? -1 : 1;
-        const compare = (left, right) => {{
-          const a = parseDueDate(dueDateText(left));
-          const b = parseDueDate(dueDateText(right));
-          return a < b ? -1 * factor : a > b ? 1 * factor : 0;
-        }};
-
-        tableRows.sort(compare).forEach((row) => tableBody.appendChild(row));
-        cards.sort(compare).forEach((card) => cardsContainer.appendChild(card));
-        if (emptyState) {{
-          cardsContainer.appendChild(emptyState);
-        }}
-      }}
-
-      function refresh() {{
-        const query = (searchInput.value || "").trim().toLowerCase();
-        const typeValue = typeSelect.value;
-        const documentsValue = documentsSelect.value;
-        sortNodes(sortSelect.value);
-        syncVisibility(query, typeValue, documentsValue);
-      }}
-
-      searchInput.addEventListener("input", refresh);
-      typeSelect.addEventListener("change", refresh);
-      documentsSelect.addEventListener("change", refresh);
-      sortSelect.addEventListener("change", refresh);
-      resetFiltersButton.addEventListener("click", () => {{
-        searchInput.value = "";
-        typeSelect.value = "";
-        documentsSelect.value = "";
-        sortSelect.value = "asc";
         refresh();
-      }});
-      refresh();
+      }}
+
+      if (document.readyState === "loading") {{
+        document.addEventListener("DOMContentLoaded", initFilters);
+      }} else {{
+        initFilters();
+      }}
+      window.addEventListener("pageshow", initFilters);
     }})();
   </script>
 </body>
